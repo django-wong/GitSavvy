@@ -117,7 +117,7 @@ class GsLogGraphByAuthorCommand(LogGraphMixin, WindowCommand, GitCommand):
         self.window.show_quick_panel(
             [entry[3] for entry in self._entries],
             self.on_author_selection,
-            flags=sublime.MONOSPACE_FONT,
+            0,
             selected_index=(list(line[2] for line in self._entries)).index(email)
         )
 

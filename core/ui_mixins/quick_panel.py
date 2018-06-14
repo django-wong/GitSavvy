@@ -47,7 +47,7 @@ class PanelActionMixin(object):
         window.show_quick_panel(
             [a[1] for a in actions or self.actions],
             self.on_action_selection,
-            flags=sublime.MONOSPACE_FONT,
+            0,
             selected_index=self.selected_index,
         )
 
@@ -169,7 +169,7 @@ class RemotePanel(GitCommand):
         self.window.show_quick_panel(
             [[remote, _remotes[remote]] for remote in self.remotes] if self.show_url else self.remotes,
             self.on_remote_selection,
-            flags=sublime.MONOSPACE_FONT,
+            0,
             selected_index=pre_selected_index
         )
 
@@ -265,7 +265,7 @@ class BranchPanel(GitCommand):
         self.window.show_quick_panel(
             self.all_branches,
             self.on_branch_selection,
-            flags=sublime.MONOSPACE_FONT,
+            0,
             selected_index=self.get_pre_selected_branch_index(remote)
         )
 
@@ -348,7 +348,7 @@ class PaginatedPanel:
     Furthermore, if the quick panel is cancelled, `None` will be passed to `on_done`.
     """
 
-    flags = sublime.MONOSPACE_FONT | sublime.KEEP_OPEN_ON_FOCUS_LOST
+    flags = sublime.KEEP_OPEN_ON_FOCUS_LOST
     next_page_message = ">>> NEXT PAGE >>>"
     empty_page_message = None
     last_page_empty_message = ">>> LAST PAGE >>>"

@@ -285,8 +285,7 @@ class GsTagsPushCommand(TextCommand, GitCommand):
 
         self.view.window().show_quick_panel(
             self.remotes,
-            lambda idx: self.push_async(idx, push_all=push_all),
-            flags=sublime.MONOSPACE_FONT
+            lambda idx: self.push_async(idx, push_all=push_all)
         )
 
     def push_async(self, remote_idx, push_all=False):

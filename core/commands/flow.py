@@ -49,8 +49,7 @@ class FlowCommon(WindowCommand, GitCommand):
         else:
             self.window.show_quick_panel(
                 [help_text] + options,
-                callback,
-                flags=sublime.MONOSPACE_FONT
+                callback
             )
 
     def get_value(self, options, index):

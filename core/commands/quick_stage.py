@@ -88,8 +88,7 @@ class GsQuickStageCommand(WindowCommand, GitCommand):
 
         self.window.show_quick_panel(
             menu_entries,
-            on_selection,
-            flags=sublime.MONOSPACE_FONT
+            on_selection
         )
 
     def get_menu_options(self):

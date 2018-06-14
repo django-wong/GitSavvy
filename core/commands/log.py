@@ -95,7 +95,7 @@ class GsLogByAuthorCommand(LogMixin, WindowCommand, GitCommand):
         self.window.show_quick_panel(
             [entry[3] for entry in self._entries],
             lambda index: self.on_author_selection(index, **kwargs),
-            flags=sublime.MONOSPACE_FONT,
+            0,
             selected_index=selected_index
         )
 

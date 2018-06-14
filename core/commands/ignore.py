@@ -61,8 +61,7 @@ class GsAssumeUnchangedCommand(WindowCommand, GitCommand):
 
         self.window.show_quick_panel(
             self._unstaged_files,
-            self.on_selection,
-            flags=sublime.MONOSPACE_FONT
+            self.on_selection
         )
 
     def on_selection(self, index):
@@ -98,8 +97,7 @@ class GsRestoreAssumedUnchangedCommand(WindowCommand, GitCommand):
         else:
             self.window.show_quick_panel(
                 self._ignored_files,
-                self.on_selection,
-                flags=sublime.MONOSPACE_FONT
+                self.on_selection
             )
 
     def on_selection(self, index):
