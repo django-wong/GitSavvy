@@ -280,12 +280,13 @@ class GsTagsPushCommand(TextCommand, GitCommand):
     def run_async(self, push_all):
         self.remotes = tuple(self.get_remotes().keys())
         if not self.remotes:
-            self.view.window().show_quick_panel([NO_REMOTES_MESSAGE], None)
+            self.view.window().show_quick_panel([NO_REMOTES_MESSAGE], None, 0)
             return
 
         self.view.window().show_quick_panel(
             self.remotes,
-            lambda idx: self.push_async(idx, push_all=push_all)
+            lambda idx: self.push_async(idx, push_all=push_all),
+            0
         )
 
     def push_async(self, remote_idx, push_all=False):

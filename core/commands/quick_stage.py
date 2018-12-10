@@ -88,7 +88,8 @@ class GsQuickStageCommand(WindowCommand, GitCommand):
 
         self.window.show_quick_panel(
             menu_entries,
-            on_selection
+            on_selection,
+            0
         )
 
     def get_menu_options(self):

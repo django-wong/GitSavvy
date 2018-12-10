@@ -31,7 +31,7 @@ class FlowCommon(WindowCommand, GitCommand):
     def run(self, **kwargs):
         self.get_flow_settings()
         if not self.flow_settings['branch.master']:
-            self.window.show_quick_panel([INIT_REQUIRED_MSG], None)
+            self.window.show_quick_panel([INIT_REQUIRED_MSG], None, 0)
 
     def is_visible(self, **kwargs):
         return self.savvy_settings.get("show_git_flow_commands") or False
@@ -45,11 +45,12 @@ class FlowCommon(WindowCommand, GitCommand):
         In case options is empty or None displays only `no_opts` text.
         """
         if not options:
-            self.window.show_quick_panel([no_opts], None)
+            self.window.show_quick_panel([no_opts], None, 0)
         else:
             self.window.show_quick_panel(
                 [help_text] + options,
-                callback
+                callback,
+                0
             )
 
     def get_value(self, options, index):

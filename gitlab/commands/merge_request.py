@@ -67,7 +67,8 @@ class GsGitlabMergeRequestCommand(WindowCommand, GitCommand, git_mixins.GitLabRe
              "Create local branch, but do not checkout.",
              "View diff.",
              "Open in browser."],
-            self.on_select_action
+            self.on_select_action,
+            0
         )
 
     def on_select_action(self, idx):

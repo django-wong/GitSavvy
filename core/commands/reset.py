@@ -34,7 +34,8 @@ class ResetMixin(object):
         else:
             self.window.show_quick_panel(
                 GIT_RESET_MODES,
-                self.on_reset_mode_selection
+                self.on_reset_mode_selection,
+                0
             )
 
     def on_reset_mode_selection(self, index):

@@ -147,7 +147,7 @@ class RemotePanel(GitCommand):
         self.remotes = list(_remotes.keys())
 
         if not self.remotes:
-            self.window.show_quick_panel(["There are no remotes available."], None)
+            self.window.show_quick_panel(["There are no remotes available."], None, 0)
             return
 
         if self.allow_direct and len(self.remotes) == 1:
@@ -258,7 +258,7 @@ class BranchPanel(GitCommand):
             self.all_branches = [b for b in self.all_branches if b.startswith(remote + "/")]
 
         if not self.all_branches:
-            self.window.show_quick_panel(["There are no branches available."], None)
+            self.window.show_quick_panel(["There are no branches available."], None, 0)
             return
 
         self.window.show_quick_panel(
