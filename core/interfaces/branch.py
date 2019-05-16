@@ -10,6 +10,7 @@ from ..commands.log import LogMixin
 from ..commands.log_graph import LogGraphMixin
 from ..git_command import GitCommand
 from ..ui_mixins.quick_panel import show_remote_panel, show_branch_panel
+from ..ui_mixins.input_panel import show_single_line_input_panel
 
 
 class GsShowBranchCommand(WindowCommand, GitCommand):
@@ -321,12 +322,10 @@ class GsBranchesRenameCommand(TextCommand, GitCommand):
             return
         self.branch_name = branch_name
 
-        self.view.window().show_input_panel(
+        show_single_line_input_panel(
             "Enter new branch name (for {}):".format(self.branch_name),
             self.branch_name,
-            self.on_entered_name,
-            None,
-            None
+            self.on_entered_name
         )
 
     def on_entered_name(self, new_name):
@@ -569,12 +568,10 @@ class GsBranchesEditBranchDescriptionCommand(TextCommand, GitCommand):
             throw_on_stderr=False
         ).strip(" \n")
 
-        self.view.window().show_input_panel(
+        show_single_line_input_panel(
             "Enter new description (for {}):".format(self.branch_name),
             current_description,
-            self.on_entered_description,
-            None,
-            None
+            self.on_entered_description
         )
 
     def on_entered_description(self, new_description):
@@ -661,7 +658,5 @@ class GsBranchesLogGraphCommand(LogGraphMixin, TextCommand, GitCommand):
         self._file_path = None
         super().run_async()
 
-    def get_graph_args(self):
-        args = super().get_graph_args()
-        args.append(self._branch)
-        return args
+    def prepare_target_view(self, view):
+        view.settings().set("git_savvy.log_graph_view.filter_by_branch", self._branch)

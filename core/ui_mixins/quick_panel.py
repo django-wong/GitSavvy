@@ -2,7 +2,6 @@ import itertools
 import sublime
 from ...common import util
 from ..git_command import GitCommand
-from ..settings import GitSavvySettings
 
 
 class PanelActionMixin(object):
@@ -254,6 +253,8 @@ class BranchPanel(GitCommand):
         if self.ignore_current_branch:
             current_branch = self.get_current_branch_name()
             self.all_branches = [b for b in self.all_branches if b != current_branch]
+        elif self.selected_branch is None:
+            self.selected_branch = self.get_current_branch_name()
 
         if remote:
             self.all_branches = [b for b in self.all_branches if b.startswith(remote + "/")]
@@ -262,31 +263,31 @@ class BranchPanel(GitCommand):
             self.window.show_quick_panel(["There are no branches available."], None)
             return
 
+        if self.selected_branch:
+            selected_index = self.get_pre_selected_branch_index(self.selected_branch, remote)
+        else:
+            selected_index = 0
+
         self.window.show_quick_panel(
             self.all_branches,
             self.on_branch_selection,
             flags=sublime.MONOSPACE_FONT,
-            selected_index=self.get_pre_selected_branch_index(remote)
+            selected_index=selected_index
         )
 
-    def get_pre_selected_branch_index(self, remote):
-        pre_selected_index = None
-        if self.selected_branch is None:
-            self.selected_branch = self.get_current_branch_name()
+    def get_pre_selected_branch_index(self, selected_branch, remote):
+        if remote:
+            branch_candidates = ["{}/{}".format(remote, selected_branch), selected_branch]
+        else:
+            branch_candidates = [selected_branch]
 
-        if self.ask_remote_first:
-            pre_selected_remote_branch = "{}/{}".format(remote, self.selected_branch)
-            if pre_selected_remote_branch in self.all_branches:
-                pre_selected_index = self.all_branches.index(pre_selected_remote_branch)
-
-        if pre_selected_index is None:
-            if self.selected_branch is not None and self.selected_branch in self.all_branches:
-                pre_selected_index = self.all_branches.index(self.selected_branch)
-
-        if pre_selected_index is None:
-            pre_selected_index = 0
-
-        return pre_selected_index
+        for candidate in branch_candidates:
+            try:
+                return self.all_branches.index(candidate)
+            except ValueError:
+                pass
+        else:
+            return 0
 
     def on_branch_selection(self, index):
         if index == -1:
@@ -488,7 +489,7 @@ def show_log_panel(entries, on_done, **kwargs):
 
     """
     _kwargs = {}
-    for option in ['selected_index', 'on_highlight', 'limit', 'show_commit_info']:
+    for option in ['selected_index', 'limit', 'on_highlight']:
         if option in kwargs:
             _kwargs[option] = kwargs[option]
 
@@ -498,8 +499,6 @@ def show_log_panel(entries, on_done, **kwargs):
 
 
 class LogPanel(PaginatedPanel):
-
-    show_commit_info = True
 
     def format_item(self, entry):
         return ([entry.short_hash + " " + entry.summary,
@@ -511,28 +510,11 @@ class LogPanel(PaginatedPanel):
         return [">>> NEXT {} COMMITS >>>".format(self.limit),
                 "Skip this set of commits and choose from the next-oldest batch."]
 
-    def _on_highlight(self, index):
-        super()._on_highlight(index)
-        if self.show_commit_info:
-            sublime.set_timeout_async(lambda: self.default_on_highlight(index))
-
-    def default_on_highlight(self, index):
-        if self._empty_message_shown:
-            return
-        if index == self.limit or index == -1:
-            return
-        sublime.active_window().run_command(
-            "gs_show_commit_info", {"commit_hash": self.ret_list[index]})
-
-    def on_highlight(self, commit):
-        pass
-
     def on_selection(self, commit):
         self.commit = commit
         sublime.set_timeout_async(lambda: self.on_selection_async(commit), 10)
 
     def on_selection_async(self, commit):
-        sublime.active_window().run_command("hide_panel", {"panel": "output.show_commit_info"})
         self.on_done(commit)
 
 

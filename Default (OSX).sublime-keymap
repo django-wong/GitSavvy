@@ -21,6 +21,14 @@
             { "key": "setting.git_savvy.get_long_text_view", "operator": "equal", "operand": true }
         ]
     },
+    {
+        "keys": ["super+w"],
+        "command": "gs_commit_view_close",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true }
+        ]
+    },
 
     ///////////////
     // DIFF VIEW //
@@ -43,6 +51,15 @@
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.diff_view", "operator": "equal", "operand": true },
             { "key": "setting.git_savvy.diff_view.in_cached_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.diff_view.disable_stage", "operator": "equal", "operand": false }
+        ]
+    },
+    {
+        "keys": ["super+z"],
+        "command": "gs_diff_undo",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.diff_view", "operator": "equal", "operand": true },
             { "key": "setting.git_savvy.diff_view.disable_stage", "operator": "equal", "operand": false }
         ]
     },
@@ -170,6 +187,17 @@
         "keys": ["super+,"],
         "command": "edit_settings",
         "args": {
+            "base_file": "${packages}/GitSavvy/syntax/diff_view.sublime-settings",
+            "default": "// Override settings for diff syntax-specific.\n{\n\t$0\n}\n"
+        },
+        "context": [
+            { "key": "selector", "operator": "equal", "operand": "git-savvy.diff_view" }
+        ]
+    },
+    {
+        "keys": ["super+,"],
+        "command": "edit_settings",
+        "args": {
             "base_file": "${packages}/GitSavvy/syntax/graph.sublime-settings",
             "default": "// Override settings for graph syntax-specific.\n{\n\t$0\n}\n"
         },
@@ -242,5 +270,15 @@
         "context": [
             { "key": "selector", "operator": "equal", "operand": "git-savvy.tags" }
         ]
+    },
+
+    /////////////////////////////
+    // SINGLE LINE INPUT PANEL //
+    ////////////////////////////
+
+    {
+        "keys": ["super+enter"],
+        "command": "noop",
+        "context": [{ "key": "setting.git_savvy.single_line_input_panel" }]
     }
 ]
