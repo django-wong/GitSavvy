@@ -87,7 +87,13 @@ class ThemeGenerator():
         """
         Apply the transformed theme to the specified target view.
         """
-        pass
+        self.write_new_theme(name)
+
+        path_in_packages = self.get_theme_path(name)
+
+        # Sublime expects `/`-delimited paths, even in Windows.
+        theme_path = os.path.join("Packages", path_in_packages).replace("\\", "/")
+        try_apply_theme(target_view, theme_path)
 
 
 class XMLThemeGenerator(ThemeGenerator):
@@ -114,15 +120,6 @@ class XMLThemeGenerator(ThemeGenerator):
             out_f.write(STYLES_HEADER.encode("utf-8"))
             out_f.write(ElementTree.tostring(self.plist, encoding="utf-8"))
 
-    def apply_new_theme(self, name, target_view):
-        self.write_new_theme(name)
-
-        path_in_packages = self.get_theme_path(name)
-
-        # Sublime expects `/`-delimited paths, even in Windows.
-        theme_path = os.path.join("Packages", path_in_packages).replace("\\", "/")
-        target_view.settings().set("color_scheme", theme_path)
-
 
 class JSONThemeGenerator(ThemeGenerator):
     """
@@ -147,6 +144,21 @@ class JSONThemeGenerator(ThemeGenerator):
         with util.file.safe_open(full_path, "wb", buffering=0) as out_f:
             out_f.write(sublime.encode_value(self.dict, pretty=True).encode("utf-8"))
 
-    def apply_new_theme(self, name, target_view):
-        self.write_new_theme(name)
-        target_view.settings().set("color_scheme", self.get_theme_name(name))
+
+def try_apply_theme(view, theme_path, tries=0):
+    """ Safly apply new theme as color_scheme. """
+    try:
+        sublime.load_resource(theme_path)
+    except Exception:
+        if tries >= 8:
+            print(
+                'GitSavvy: The theme {} is not ready to load. Maybe restart to get colored '
+                'highlights.'.format(theme_path)
+            )
+            return
+
+        delay = (pow(2, tries) - 1) * 10
+        sublime.set_timeout_async(lambda: try_apply_theme(view, theme_path, tries + 1), delay)
+        return
+
+    view.settings().set("color_scheme", theme_path)
