@@ -1,49 +1,166 @@
-from sublime_plugin import WindowCommand
+import re
 
+import sublime
+from sublime_plugin import EventListener, TextCommand, WindowCommand
+
+from ..utils import hprint
+from ..runtime import enqueue_on_worker
 from ..git_command import GitCommand
+from ..ui_mixins.quick_panel import PanelCommandMixin
 from ..ui_mixins.quick_panel import show_stash_panel
 from ..ui_mixins.input_panel import show_single_line_input_panel
 from ...common import util
 
 
-class GsStashApplyCommand(WindowCommand, GitCommand):
+MYPY = False
+if MYPY:
+    from typing import Optional, Union
+    StashId = Union[int, str]
+
+
+class RevalidateStashView(EventListener):
+    def on_activated(self, view):
+        # type: (sublime.View) -> None
+        # Subtle runtime nuance: this "on_activated" runs sync when
+        # the view is created in `create_stash_view` t.i. even before
+        # we change its settings.  Thus we don't revalidate initially.
+        stash_id = view.settings().get("git_savvy.stash_view.stash_id", None)
+        if stash_id is None:
+            return
+
+        view.settings().set("git_savvy.stash_view.status", "revalidate")
+        enqueue_on_worker(revalidate, view, stash_id)  # <== on worker
+
+
+def revalidate(view, stash_id):
+    # type: (sublime.View, StashId) -> None
+    view_text = view.substr(sublime.Region(0, view.size()))
+
+    try:
+        git = GitCommand()
+        git.view = view  # type: ignore
+        stash_patch = git.show_stash(stash_id)
+    except Exception:
+        stash_patch = ":-("
+
+    if stash_patch == view_text:
+        view.settings().set("git_savvy.stash_view.status", "valid")
+    else:
+        view.settings().set("git_savvy.stash_view.status", "invalid")
+
+
+class SelectStashIdMixin(TextCommand):
+    def run(self, edit, stash_id=None):
+        # type: (sublime.Edit, Optional[StashId]) -> None
+        if stash_id is not None:
+            self.do(stash_id)
+            return
+
+        stash_id = self.view.settings().get("git_savvy.stash_view.stash_id", None)
+        if stash_id is not None:
+            view_status = self.view.settings().get("git_savvy.stash_view.status")
+            if view_status == "revalidate":
+                # Enqueue as worker task to ensure that we run after
+                # on_activated's `revalidate` has finished which runs
+                # on the worker as well.
+                enqueue_on_worker(self.view.run_command, self.name())
+            elif view_status == "invalid":
+                util.view.flash(
+                    self.view,
+                    "Nothing done, the stash you're looking at is outdated. "
+                )
+                hprint(
+                    "GitSavvy: The stash you're looking at is outdated. "
+                    "Maybe its number ({}) changed because you modified the "
+                    "stash list since opening this view. ".format(stash_id)
+                )
+            elif view_status == "valid":
+                self.do(stash_id)
+            else:
+                raise RuntimeError("stash view in invalid state '{}'".format(view_status))
+            return
+
+        show_stash_panel(self.on_done)
+
+    def on_done(self, stash_id):
+        # type: (Optional[StashId]) -> None
+        if stash_id is not None:
+            self.do(stash_id)
+
+    def do(self, stash_id):
+        # type: (StashId) -> None
+        return NotImplemented
+
+
+class GsStashApplyCommand(SelectStashIdMixin, GitCommand):
 
     """
     Apply the selected stash.
     """
 
-    def run(self, stash_id=None):
-        if stash_id is None:
-            show_stash_panel(self.do_apply)
-        else:
-            self.do_apply(stash_id)
-
-    def do_apply(self, stash_id):
-        if stash_id is None:
-            return
-
+    def do(self, stash_id):
+        # type: (StashId) -> None
         self.apply_stash(stash_id)
-        util.view.refresh_gitsavvy(self.window.active_view())
+        util.view.flash(self.view, "Successfully applied stash ({}).".format(stash_id))
+        util.view.refresh_gitsavvy(self.view)
 
 
-class GsStashPopCommand(WindowCommand, GitCommand):
+class GsStashPopCommand(SelectStashIdMixin, GitCommand):
 
     """
     Pop the selected stash.
     """
 
-    def run(self, stash_id=None):
-        if stash_id is None:
-            show_stash_panel(self.do_pop)
-        else:
-            self.do_pop(stash_id)
-
-    def do_pop(self, stash_id):
-        if stash_id is None:
-            return
-
+    def do(self, stash_id):
+        # type: (StashId) -> None
         self.pop_stash(stash_id)
-        util.view.refresh_gitsavvy(self.window.active_view())
+        util.view.flash(self.view, "Successfully popped stash ({}).".format(stash_id))
+
+        if self.view.settings().get("git_savvy.stash_view.stash_id", None) == stash_id:
+            self.view.close()
+        else:
+            util.view.refresh_gitsavvy(self.view)
+
+
+DROP_UNDO_MESSAGE = """\
+GitSavvy: Dropped stash ({}), in case you want to undo, run:
+  $ git branch tmp {}
+"""
+EXTRACT_COMMIT = re.compile(r"\((.*)\)$")
+
+
+class GsStashDropCommand(SelectStashIdMixin, GitCommand):
+
+    """
+    Drop the selected stash.
+    """
+
+    @util.actions.destructive(description="drop a stash")
+    def do(self, stash_id):
+        # type: (StashId) -> None
+        rv = self.drop_stash(stash_id)
+        match = EXTRACT_COMMIT.search(rv.strip())
+        if match:
+            commit = match.group(1)
+            print(DROP_UNDO_MESSAGE.format(stash_id, commit))
+        util.view.flash(
+            self.view,
+            "Successfully dropped stash ({}). "
+            "Open Sublime console for undo instructions.".format(stash_id)
+        )
+
+        if self.view.settings().get("git_savvy.stash_view.stash_id", None) == stash_id:
+            self.view.close()
+        else:
+            util.view.refresh_gitsavvy(self.view)
+
+
+class GsStashCommand(PanelCommandMixin, WindowCommand, GitCommand):
+    default_actions = [
+        ["gs_stash_apply", "Apply stash"],
+        ["gs_stash_pop", "Pop stash"],
+        ["gs_stash_drop", "Drop stash"],
+    ]
 
 
 class GsStashShowCommand(WindowCommand, GitCommand):
@@ -64,18 +181,20 @@ class GsStashShowCommand(WindowCommand, GitCommand):
         if stash_id is None:
             return
 
-        stash_view = self.get_stash_view("stash@{{{}}}".format(stash_id))
+        stash_view = self.create_stash_view(stash_id)
         stash_view.run_command("gs_replace_view_text", {"text": self.show_stash(stash_id), "nuke_cursors": True})
 
-    def get_stash_view(self, title):
-        window = self.window if hasattr(self, "window") else self.view.window()
+    def create_stash_view(self, stash_id):
+        window = self.window
         repo_path = self.repo_path
-        stash_view = util.view.get_scratch_view(self, "stash_" + title, read_only=True)
+        stash_view = util.view.get_scratch_view(self, "stash", read_only=True)
+        title = "stash@{{{}}}".format(stash_id)
         stash_view.set_name(title)
         stash_view.set_syntax_file("Packages/GitSavvy/syntax/diff.sublime-syntax")
         stash_view.settings().set("git_savvy.repo_path", repo_path)
+        stash_view.settings().set("git_savvy.stash_view.stash_id", stash_id)
+        stash_view.settings().set("git_savvy.stash_view.status", "valid")
         window.focus_view(stash_view)
-        stash_view.sel().clear()
 
         return stash_view
 
@@ -116,27 +235,3 @@ class GsStashSaveCommand(WindowCommand, GitCommand):
                 self.pop_stash(1)
                 raise e
         util.view.refresh_gitsavvy(self.window.active_view())
-
-
-class GsStashDropCommand(WindowCommand, GitCommand):
-
-    """
-    Drop the selected stash.
-    """
-
-    def run(self, stash_id=None):
-        if stash_id is None:
-            show_stash_panel(self.do_drop)
-        else:
-            self.do_drop(stash_id)
-
-    def do_drop(self, stash_id):
-        if stash_id is None:
-            return
-
-        @util.actions.destructive(description="drop a stash")
-        def do_drop_stash(stash_id):
-            self.drop_stash(stash_id)
-            util.view.refresh_gitsavvy(self.window.active_view())
-
-        do_drop_stash(stash_id)
