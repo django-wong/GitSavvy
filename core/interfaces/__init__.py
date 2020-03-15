@@ -1,10 +1,11 @@
 import sublime
 from sublime_plugin import TextCommand
 
-from .status import *
-from .branch import *
-from .rebase import *
-from .tags import *
+from .status import *  # noqa: F401, F403
+from .branch import *  # noqa: F401, F403
+from .rebase import *  # noqa: F401, F403
+from .tags import *  # noqa: F401, F403
+from ..git_command import GitCommand
 
 
 class GsTabCycleCommand(TextCommand, GitCommand):

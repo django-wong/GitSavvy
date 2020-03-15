@@ -42,6 +42,7 @@ class ThemeGenerator():
     """
 
     def __init__(self, original_color_scheme):
+        self._dirty = False
         try:
             self.color_scheme_string = sublime.load_resource(original_color_scheme)
         except IOError:
@@ -75,7 +76,14 @@ class ThemeGenerator():
         as well as a scope corresponding to regions of text.  Any keyword arguments
         will be used as key and value for the newly-defined style.
         """
-        pass
+        if scope in self.color_scheme_string:
+            return
+
+        self._dirty = True
+        self._add_scoped_style(name, scope, **kwargs)
+
+    def _add_scoped_style(self, name, scope, **kwargs):
+        raise NotImplementedError
 
     def write_new_theme(self, name):
         """
@@ -87,7 +95,16 @@ class ThemeGenerator():
         """
         Apply the transformed theme to the specified target view.
         """
-        pass
+        if not self._dirty:
+            return
+
+        self.write_new_theme(name)
+
+        path_in_packages = self.get_theme_path(name)
+
+        # Sublime expects `/`-delimited paths, even in Windows.
+        theme_path = os.path.join("Packages", path_in_packages).replace("\\", "/")
+        try_apply_theme(target_view, theme_path)
 
 
 class XMLThemeGenerator(ThemeGenerator):
@@ -102,7 +119,7 @@ class XMLThemeGenerator(ThemeGenerator):
         self.plist = ElementTree.XML(self.color_scheme_string)
         self.styles = self.plist.find("./dict/array")
 
-    def add_scoped_style(self, name, scope, **kwargs):
+    def _add_scoped_style(self, name, scope, **kwargs):
         properties = "".join(PROPERTY_TEMPLATE.format(key=k, value=v) for k, v in kwargs.items())
         new_style = STYLE_TEMPLATE.format(name=name, scope=scope, properties=properties)
         self.styles.append(ElementTree.XML(new_style))
@@ -113,15 +130,6 @@ class XMLThemeGenerator(ThemeGenerator):
         with util.file.safe_open(full_path, "wb", buffering=0) as out_f:
             out_f.write(STYLES_HEADER.encode("utf-8"))
             out_f.write(ElementTree.tostring(self.plist, encoding="utf-8"))
-
-    def apply_new_theme(self, name, target_view):
-        self.write_new_theme(name)
-
-        path_in_packages = self.get_theme_path(name)
-
-        # Sublime expects `/`-delimited paths, even in Windows.
-        theme_path = os.path.join("Packages", path_in_packages).replace("\\", "/")
-        target_view.settings().set("color_scheme", theme_path)
 
 
 class JSONThemeGenerator(ThemeGenerator):
@@ -135,7 +143,7 @@ class JSONThemeGenerator(ThemeGenerator):
         super().__init__(original_color_scheme)
         self.dict = OrderedDict(sublime.decode_value(self.color_scheme_string))
 
-    def add_scoped_style(self, name, scope, **kwargs):
+    def _add_scoped_style(self, name, scope, **kwargs):
         new_rule = OrderedDict([("name", name), ("scope", scope)])
         for (k, v) in kwargs.items():
             new_rule[k] = v
@@ -147,6 +155,21 @@ class JSONThemeGenerator(ThemeGenerator):
         with util.file.safe_open(full_path, "wb", buffering=0) as out_f:
             out_f.write(sublime.encode_value(self.dict, pretty=True).encode("utf-8"))
 
-    def apply_new_theme(self, name, target_view):
-        self.write_new_theme(name)
-        target_view.settings().set("color_scheme", self.get_theme_name(name))
+
+def try_apply_theme(view, theme_path, tries=0):
+    """ Safly apply new theme as color_scheme. """
+    try:
+        sublime.load_resource(theme_path)
+    except Exception:
+        if tries >= 8:
+            print(
+                'GitSavvy: The theme {} is not ready to load. Maybe restart to get colored '
+                'highlights.'.format(theme_path)
+            )
+            return
+
+        delay = (pow(2, tries) - 1) * 10
+        sublime.set_timeout_async(lambda: try_apply_theme(view, theme_path, tries + 1), delay)
+        return
+
+    view.settings().set("color_scheme", theme_path)

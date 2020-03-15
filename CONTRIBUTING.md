@@ -1,6 +1,6 @@
 # Contribute
 
-If you're interested in adding features, reporting/fixing bugs, or just discussing the future of GitSavvy, this is the place to start.  Please feel free to reach out if you have questions or comments by opening an [issue](https://github.com/divmain/GitSavvy/issues).
+If you're interested in adding features, reporting/fixing bugs, or just discussing the future of GitSavvy, this is the place to start.  Please feel free to reach out if you have questions or comments by opening an [issue](https://github.com/timbrel/GitSavvy/issues).
 
 
 ## Adding new features
@@ -67,3 +67,7 @@ you will be asked to provide the information necessary to make that happen.
 Pull requests on new features should be submitted to `dev` branch and will be
 regularly merged into `master` after evaluations over an extended period of
 time.
+
+# Issue Triage [![Open Source Helpers](https://www.codetriage.com/divmain/gitsavvy/badges/users.svg)](https://www.codetriage.com/divmain/gitsavvy)
+
+You can triage issues which may include reproducing bug reports or asking for vital information, such as version numbers or reproduction instructions. If you would like to start triaging issues, one easy way to get started is to [subscribe to gitsavvy on CodeTriage](https://www.codetriage.com/divmain/gitsavvy).

@@ -9,15 +9,29 @@ from . import util
 from ..core.settings import GitSavvySettings
 
 
-interfaces = {}
+MYPY = False
+if MYPY:
+    from typing import Dict, Optional
+
+
+interfaces = {}  # type: Dict[sublime.ViewId, Interface]
 edit_views = {}
 subclasses = []
 
 EDIT_DEFAULT_HELP_TEXT = "## To finalize your edit, press {super_key}+Enter.  To cancel, close the view.\n"
 
 
-class Interface():
+def focus_view(view):
+    window = view.window()
+    if not window:
+        return
 
+    group, _ = window.get_view_index(view)
+    window.focus_group(group)
+    window.focus_view(view)
+
+
+class Interface():
     interface_type = ""
     read_only = True
     syntax_file = ""
@@ -35,9 +49,11 @@ class Interface():
             window = sublime.active_window()
             for view in window.views():
                 vset = view.settings()
-                if vset.get("git_savvy.interface") == cls.interface_type and \
-                   vset.get("git_savvy.repo_path") == repo_path:
-                    window.focus_view(view)
+                if (
+                    vset.get("git_savvy.interface") == cls.interface_type
+                    and vset.get("git_savvy.repo_path") == repo_path
+                ):
+                    focus_view(view)
                     try:
                         return interfaces[view.id()]
                     except KeyError:
@@ -97,7 +113,7 @@ class Interface():
         self.view.set_name(self.title())
 
         self.render()
-        window.focus_view(self.view)
+        focus_view(self.view)
 
         return self.view
 
@@ -271,6 +287,7 @@ def register_listeners(InterfaceClass):
 
 
 def get_interface(view_id):
+    # type: (sublime.ViewId) -> Optional[Interface]
     return interfaces.get(view_id, None)
 
 

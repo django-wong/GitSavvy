@@ -1,69 +1,46 @@
-import difflib
 import re
-import time
 
 from ..exceptions import GitSavvyError
 from ...common import util
 
-NEAREST_NODE_PATTERN = re.compile(r'.*\*.*\[(.*?)(?:[\^\~]+[\d]*)+\]')  # https://regexr.com/3kuv3
+
+MYPY = False
+if MYPY:
+    from typing import List
+
+
+EXTRACT_BRANCH_NAME = re.compile(r'^[^[]+\[(.*?)(?:[\^\~]+[\d]*)*\]')
 
 
 class NearestBranchMixin(object):
     """ Provide reusable methods for detecting the nearest of a branch relatives """
 
     def branch_relatives(self, branch):
-        """ Geta  list of all relatives from ``git show-branch`` results """
-        branch_tree = self.git("show-branch", "--no-color").splitlines()
-        util.debug.add_to_log('nearest_branch: found {} show-branch results'.format(
-                              len(branch_tree)))
-        relatives = []
-        for rel in branch_tree:
-            match = re.search(NEAREST_NODE_PATTERN, rel)
-            if not match:
-                continue
-            branch_name = match.group(1)
-            if branch_name != branch and branch_name not in relatives:
-                relatives.append(branch_name)
+        # type: (str) -> List[str]
+        """ Get list of all relatives from ``git show-branch`` results """
+        output = self.git("show-branch", "--no-color")
+
+        prelude, body = re.split(r'^-+$', output, flags=re.M)
+
+        match = re.search(r'^(\s+)\*', prelude, re.M)
+        if not match:
+            print("branch {} not found in header information".format(branch))
+            return []
+
+        branch_column = len(match.group(1))
+        relatives = []  # type: List[str]
+        for line in filter(None, body.splitlines()):  # type: str
+            if line[branch_column] != ' ':
+                match = EXTRACT_BRANCH_NAME.match(line)
+                if match:
+                    branch_name = match.group(1)
+                    if branch_name != branch and branch_name not in relatives:
+                        relatives.append(branch_name)
+
         return relatives
 
-    def _nearest_from_relatives(self, relatives, branch):
-        """
-        Find the nearest branch from the "branch-out nodes" of all relatives.
-        """
-        util.debug.add_to_log('nearest_branch: filtering branches that share branch-out nodes')
-        diff = difflib.Differ()
-        max_revisions = 100
-        branch_commits = self.git(
-            "rev-list", "-{}".format(max_revisions), "--first-parent", branch).splitlines()
-        for relative in relatives:
-            util.debug.add_to_log('nearest_branch: Getting common commits with {}'.format(relative))
-            relative_commits = self.git("rev-list", "-{}".format(max_revisions),
-                                        "--first-parent", relative).splitlines()
-
-            # Enumerate over branch vs relative commit hashes and look for a common one
-            common = None
-            for line in diff.compare(branch_commits, relative_commits):
-                if not line.startswith(' '):
-                    util.debug.add_to_log('nearest_branch: commit differs {}'.format(line))
-                    continue
-                common = line.strip()
-                util.debug.add_to_log('nearest_branch: found common commit {}'.format(common))
-                break
-
-            if not common:
-                util.debug.add_to_log('nearest_branch: No common commit found with {}'.format(relative))
-                continue
-
-            # Found common "branch-out node", get reachable branches for commit
-            branches = self.git("branch", "--contains", common, "--merged").splitlines()
-            cleaned_branch_names = [b[2:].strip() for b in branches]
-            util.debug.add_to_log('nearest_branch: got valid branches {}'.format(cleaned_branch_names))
-            if relative in cleaned_branch_names:
-                return relative
-
-        return None
-
     def nearest_branch(self, branch, default="master"):
+        # type: (str, str) -> str
         """
         Find the nearest commit in current branch history that exists
         on a different branch and return that branch name.
@@ -79,7 +56,6 @@ class NearestBranchMixin(object):
         http://stackoverflow.com/a/17843908/484127
         http://stackoverflow.com/questions/1527234
         """
-        start = time.time()
         try:
             relatives = self.branch_relatives(branch)
         except GitSavvyError:
@@ -89,23 +65,8 @@ class NearestBranchMixin(object):
             util.debug.add_to_log('nearest_branch: No relatives found. '
                                   'Possibly on a root branch!')
             return default
+
         util.debug.add_to_log('nearest_branch: found {} relatives: {}'.format(
                               len(relatives), relatives))
 
-        nearest = self._nearest_from_relatives(relatives, branch)
-
-        end = time.time()
-        util.debug.add_to_log('nearest_branch: Located nearest branch in {:.4f}'
-                              ' seconds'.format(end - start))
-
-        if not nearest:
-            util.debug.add_to_log('nearest_branch: No valid nearest found. '
-                                  'Possibly on a root / detached branch!')
-            return default
-
-        # if same as branch, return default instead
-        if branch == nearest:
-            util.debug.add_to_log('nearest_branch: Best candidate is source branch; using default')
-            return default
-        util.debug.add_to_log('nearest_branch: Found best candidate {}'.format(nearest))
-        return nearest
+        return relatives[0]

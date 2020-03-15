@@ -92,13 +92,21 @@
             "remove_background": "#A83732",
             "remove_foreground_bold": "#F9F9F4",
             "remove_background_bold": "#702820"
+        },
+        "log_graph": {
+            "commit_dot_foreground": "#9911",
+            "commit_dot_background": "#991",
+            "path_foreground": "#991",
+            "path_background": "#99991109",
+            "matching_commit_foreground": "#1991",
+            "matching_commit_background": "#199"
         }
     },
 
     /*
         Change this to `true` when you would like inline diff to
         ignore EOL whitespace changes.
-        See details in https://github.com/divmain/GitSavvy/issues/177
+        See details in https://github.com/timbrel/GitSavvy/issues/177
      */
     "inline_diff_ignore_eol_whitespaces": false,
 
@@ -149,7 +157,7 @@
     "pedantic_commit": true,
     "pedantic_commit_ruler": true,
     "pedantic_commit_first_line_length": 50,
-    "pedantic_commit_message_line_length": 80,
+    "pedantic_commit_message_line_length": 72,
     "pedantic_commit_warning_length": 20,
 
     /*
@@ -273,15 +281,6 @@
         commit in the output panel.
     */
     "show_full_commit_info": false,
-
-    /*
-        Update the desired graph arguments for a customized experience.
-        Do not add "--all" in this setting, it is added in graph all branches
-
-        NOTE: Changes you make may break in-view functionality, so use with caution.
-     */
-    // "git_graph_args": ["log", "--oneline", "--graph", "--decorate"],
-    "git_graph_args": ["log", "--pretty=format:%h%d %s (%ar) <%an>", "--graph"],
 
     /*
         When set to `true`, GitSavvy will follow file renames when running git log/graph

@@ -269,7 +269,7 @@ class GsBlameRefreshCommand(BlameMixin, TextCommand, GitCommand):
                 # Iterate through header keys and values.
                 try:
                     k, v = re.match(r"([^ ]+) (.+)", next_line).groups()
-                except AttributeError as e:
+                except AttributeError:
                     # Sometimes git-blame includes keys without values;
                     # since we don't care about these, simply discard.
                     print("Skipping blame line: " + repr(next_line))
@@ -426,6 +426,7 @@ class GsBlameActionCommand(BlameMixin, PanelActionMixin, TextCommand, GitCommand
         self.view.window().run_command("gs_show_file_at_commit", {
             "commit_hash": commit_hash,
             "filepath": self.file_path,
+            "check_for_renames": True,
             "lineno": lineno,
             "lang": settings.get('git_savvy.original_syntax', None)
         })
