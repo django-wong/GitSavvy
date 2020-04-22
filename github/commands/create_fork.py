@@ -34,7 +34,8 @@ class GsGithubCreateForkCommand(PanelCommandMixin, WindowCommand, GitCommand,
             ["Add fork as remote?",
              self.clone_url,
              self.ssh_url],
-            self.on_select_action
+            self.on_select_action,
+            0
         )
 
     def on_select_action(self, idx):

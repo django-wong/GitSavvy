@@ -858,7 +858,7 @@ class gs_log_graph_by_author(WindowCommand, GitCommand):
         self.window.show_quick_panel(
             [entry[3] for entry in entries],
             on_select,
-            flags=sublime.MONOSPACE_FONT,
+            flags=0,
             selected_index=[line[2] for line in entries].index(email)
         )
 

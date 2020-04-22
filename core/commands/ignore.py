@@ -63,7 +63,7 @@ class GsAssumeUnchangedCommand(WindowCommand, GitCommand):
         self.window.show_quick_panel(
             self._unstaged_files,
             self.on_selection,
-            flags=sublime.MONOSPACE_FONT
+            0
         )
 
     def on_selection(self, index):
@@ -95,12 +95,12 @@ class GsRestoreAssumedUnchangedCommand(WindowCommand, GitCommand):
         self._ignored_files = tuple(f[1] for f in all_file_lines if f[0] == "h")
 
         if not self._ignored_files:
-            self.window.show_quick_panel(["No files are assumed unchanged."], None)
+            self.window.show_quick_panel(["No files are assumed unchanged."], None, 0)
         else:
             self.window.show_quick_panel(
                 self._ignored_files,
                 self.on_selection,
-                flags=sublime.MONOSPACE_FONT
+                0
             )
 
     def on_selection(self, index):

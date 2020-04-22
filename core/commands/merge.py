@@ -66,7 +66,8 @@ class GsRestartMergeForFileCommand(WindowCommand, GitCommand):
 
         self.window.show_quick_panel(
             self._conflicts,
-            self.on_selection
+            self.on_selection,
+            0
         )
 
     def on_selection(self, index):

@@ -46,7 +46,7 @@ class GsGithubAddForkAsRemoteCommand(WindowCommand, GitCommand, git_mixins.Githu
         if not fork:
             return
         self.fork = fork
-        self.window.show_quick_panel([fork["clone_url"], fork["ssh_url"]], self.on_select_url)
+        self.window.show_quick_panel([fork["clone_url"], fork["ssh_url"]], self.on_select_url, 0)
 
     def on_select_url(self, index):
         if index < 0:

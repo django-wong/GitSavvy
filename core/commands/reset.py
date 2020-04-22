@@ -35,7 +35,7 @@ class ResetMixin(object):
             self.window.show_quick_panel(
                 GIT_RESET_MODES,
                 self.on_reset_mode_selection,
-                flags=sublime.MONOSPACE_FONT
+                0
             )
 
     def on_reset_mode_selection(self, index):
