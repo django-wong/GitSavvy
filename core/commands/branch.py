@@ -108,5 +108,5 @@ class gs_delete_branch(WindowCommand, GitCommand):
         self.window.show_quick_panel(
             actions,
             on_action_selection,
-            flags=sublime.MONOSPACE_FONT,
+            flags=0,
         )

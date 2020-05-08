@@ -1560,7 +1560,7 @@ class gs_log_graph_action(WindowCommand, GitCommand):
         self.window.show_quick_panel(
             [a[0] for a in actions],
             on_action_selection,
-            flags=sublime.MONOSPACE_FONT,
+            flags=0,
             selected_index=self.selected_index,
         )
 
