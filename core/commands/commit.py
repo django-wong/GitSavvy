@@ -1,15 +1,19 @@
+from functools import lru_cache
 import os
 
 import sublime
 from sublime_plugin import WindowCommand, TextCommand
-from sublime_plugin import EventListener
+from sublime_plugin import EventListener, ViewEventListener
 
 from . import intra_line_colorizer
-from ..runtime import enqueue_on_worker
-from ..view import replace_region
 from ..git_command import GitCommand
+from ..runtime import enqueue_on_worker
+from ..utils import focus_view
+from ..view import replace_view_content
 from ...common import util
 from ...core.settings import SettingsMixin
+from GitSavvy.core.fns import filter_
+from GitSavvy.core.ui_mixins.quick_panel import short_ref
 
 
 __all__ = (
@@ -18,17 +22,23 @@ __all__ = (
     "gs_commit_view_do_commit",
     "gs_commit_view_sign",
     "gs_commit_view_close",
+    "gs_commit_log_helper",
     "GsPrepareCommitFocusEventListener",
     "GsPedanticEnforceEventListener",
 )
 
 
+MYPY = False
+if MYPY:
+    from typing import Optional, Tuple
+
+
 COMMIT_HELP_TEXT_EXTRA = """##
-## You may also reference or close a GitHub issue with this commit.
-## To do so, type `#` followed by the `tab` key.  You will be shown a
-## list of issues related to the current repo.  You may also type
-## `owner/repo#` plus the `tab` key to reference an issue in a
-## different GitHub repo.
+## "<tab>"       at the very first char to see the recent log
+## "fixup<tab>"  to create a fixup subject  (short: "fix<tab>")
+## "squash<tab>  to create a squash subject (short: "sq<tab>")
+## "#<tab>"      to reference a GitHub issue (or: "owner/repo#<tab>")
+## In the diff below, [o] will open the file under the cursor.
 """
 
 COMMIT_HELP_TEXT_ALT = """
@@ -56,6 +66,14 @@ COMMIT_TITLE = "COMMIT: {}"
 CONFIRM_ABORT = "Confirm to abort commit?"
 
 
+def compute_identifier_for_view(view):
+    # type: (sublime.View) -> Optional[Tuple]
+    settings = view.settings()
+    return (
+        settings.get('git_savvy.repo_path'),
+    ) if settings.get('git_savvy.commit_view') else None
+
+
 class gs_commit(WindowCommand, GitCommand):
 
     """
@@ -67,25 +85,35 @@ class gs_commit(WindowCommand, GitCommand):
     def run(self, repo_path=None, include_unstaged=False, amend=False):
         repo_path = repo_path or self.repo_path
 
-        view = self.window.new_file()
-        settings = view.settings()
-        settings.set("git_savvy.repo_path", repo_path)
-        settings.set("git_savvy.get_long_text_view", True)
-        settings.set("git_savvy.commit_view", True)
-        settings.set("git_savvy.commit_view.include_unstaged", include_unstaged)
-        settings.set("git_savvy.commit_view.amend", amend)
-        commit_on_close = self.savvy_settings.get("commit_on_close")
-        settings.set("git_savvy.commit_on_close", commit_on_close)
-        prompt_on_abort_commit = self.savvy_settings.get("prompt_on_abort_commit")
-        settings.set("git_savvy.prompt_on_abort_commit", prompt_on_abort_commit)
+        this_id = (
+            repo_path,
+        )
+        for view in self.window.views():
+            if compute_identifier_for_view(view) == this_id:
+                settings = view.settings()
+                settings.set("git_savvy.commit_view.include_unstaged", include_unstaged)
+                settings.set("git_savvy.commit_view.amend", amend)
+                focus_view(view)
+                break
+        else:
+            view = self.window.new_file()
+            settings = view.settings()
+            settings.set("git_savvy.repo_path", repo_path)
+            settings.set("git_savvy.commit_view", True)
+            settings.set("git_savvy.commit_view.include_unstaged", include_unstaged)
+            settings.set("git_savvy.commit_view.amend", amend)
+            commit_on_close = self.savvy_settings.get("commit_on_close")
+            settings.set("git_savvy.commit_on_close", commit_on_close)
+            prompt_on_abort_commit = self.savvy_settings.get("prompt_on_abort_commit")
+            settings.set("git_savvy.prompt_on_abort_commit", prompt_on_abort_commit)
 
-        view.set_syntax_file("Packages/GitSavvy/syntax/make_commit.sublime-syntax")
-        view.run_command("gs_handle_vintageous")
+            view.set_syntax_file("Packages/GitSavvy/syntax/make_commit.sublime-syntax")
+            view.run_command("gs_handle_vintageous")
 
-        title = COMMIT_TITLE.format(os.path.basename(repo_path))
-        view.set_name(title)
-        view.set_scratch(True)  # ignore dirty on actual commit
-        self.initialize_view(view, include_unstaged, amend)
+            title = COMMIT_TITLE.format(os.path.basename(repo_path))
+            view.set_name(title)
+            view.set_scratch(True)  # ignore dirty on actual commit
+            self.initialize_view(view, include_unstaged, amend)
 
     def initialize_view(self, view, include_unstaged, amend):
         # type: (sublime.View, bool, bool) -> None
@@ -112,7 +140,7 @@ class gs_commit(WindowCommand, GitCommand):
             with util.file.safe_open(commit_help_extra_path, "r", encoding="utf-8") as f:
                 initial_text += f.read()
 
-        replace_region(view, initial_text)
+        replace_view_content(view, initial_text)
         view.run_command("gs_prepare_commit_refresh_diff")
 
 
@@ -157,15 +185,35 @@ class gs_prepare_commit_refresh_diff(TextCommand, GitCommand):
         except IndexError:
             region = sublime.Region(view.size())
 
-        replace_region(view, final_text, region)
+        if view.substr(region) == final_text:
+            return
+
+        replace_view_content(view, final_text, region)
         if shows_diff:
             intra_line_colorizer.annotate_intra_line_differences(view, final_text, region.begin())
 
 
-class GsPrepareCommitFocusEventListener(EventListener):
-    def on_activated(self, view):
-        if view.settings().get("git_savvy.commit_view"):
-            view.run_command("gs_prepare_commit_refresh_diff", {"sync": False})
+class GsPrepareCommitFocusEventListener(ViewEventListener):
+    @classmethod
+    def is_applicable(cls, settings):
+        return settings.get("git_savvy.commit_view")
+
+    @classmethod
+    def applies_to_primary_view_only(cls):
+        return False
+
+    def on_activated(self):
+        self.view.run_command("gs_prepare_commit_refresh_diff", {"sync": False})
+
+    # Must be "async", see: https://github.com/timbrel/GitSavvy/pull/1382
+    def on_selection_modified_async(self) -> None:
+        view = self.view
+        in_dropped_content = any(
+            r.contains(s) or r.intersects(s)
+            for r in view.find_by_selector("git-savvy.make-commit meta.dropped.git.commit")
+            for s in view.sel()
+        )
+        view.set_read_only(in_dropped_content)
 
 
 class GsPedanticEnforceEventListener(EventListener, SettingsMixin):
@@ -335,10 +383,7 @@ class gs_commit_view_sign(TextCommand, GitCommand):
 
         view_text = self.view.substr(sublime.Region(0, self.view.size()))
         new_view_text = new_commit_message + view_text[len(commit_message):]
-        self.view.run_command("gs_replace_view_text", {
-            "text": new_view_text,
-            "restore_cursors": True
-        })
+        replace_view_content(self.view, new_view_text)
 
 
 class gs_commit_view_close(TextCommand, GitCommand):
@@ -363,3 +408,48 @@ class gs_commit_view_close(TextCommand, GitCommand):
 
         else:
             self.view.close()
+
+
+class gs_commit_log_helper(TextCommand, GitCommand):
+    def run(self, edit, prefix="fixup! ", move_to_eol=True):
+        view = self.view
+        window = view.window()
+        assert window
+
+        cursor = view.sel()[0].begin()
+        items = self.log(limit=100)
+
+        def on_done(idx):
+            window.run_command("hide_panel", {"panel": "output.show_commit_info"})  # type: ignore[union-attr]
+            if idx == -1:
+                return
+            entry = items[idx]
+            text = "{}{}".format(prefix, entry.summary)
+            replace_view_content(view, text, region=view.line(cursor))
+            if move_to_eol:
+                view.sel().clear()
+                view.sel().add(len(text))
+
+        # `on_highlight` also gets called `on_done`, and then
+        # our "show|hide_panel" side-effects get muddled.  We
+        # reduce the side-effect here using `lru_cache`.
+        @lru_cache(1)
+        def on_highlight(idx):
+            entry = items[idx]
+            window.run_command("gs_show_commit_info", {  # type: ignore[union-attr]  # mypy bug
+                "commit_hash": entry.short_hash
+            })
+
+        format_item = lambda entry: "  ".join(filter_(
+            (
+                entry.short_hash,
+                short_ref(entry.ref) if not entry.ref.startswith("HEAD ->") else "",
+                entry.summary
+            )
+        ))
+        window.show_quick_panel(
+            list(map(format_item, items)),
+            on_done,
+            flags=sublime.MONOSPACE_FONT | sublime.KEEP_OPEN_ON_FOCUS_LOST,
+            on_highlight=on_highlight
+        )

@@ -1007,51 +1007,6 @@ class GsRebaseOnTopOfCommand(GsRebaseDefineBaseRefCommand):
         util.view.refresh_gitsavvy(self.view, refresh_sidebar=True)
 
 
-class GsRebaseAbortCommand(TextCommand, GitCommand):
-
-    def run(self, edit):
-        sublime.set_timeout_async(self.run_async, 0)
-
-    def run_async(self):
-        try:
-            self.git("rebase", "--abort")
-        finally:
-            util.view.refresh_gitsavvy(self.view, refresh_sidebar=True)
-
-
-class GsRebaseContinueCommand(TextCommand, GitCommand):
-
-    def run(self, edit):
-        sublime.set_timeout_async(self.run_async, 0)
-
-    def run_async(self):
-        try:
-            if self.in_rebase_merge():
-                (staged_entries,
-                 unstaged_entries,
-                 untracked_entries,
-                 conflict_entries) = self.sort_status_entries(self.get_status())
-                if len(unstaged_entries) + len(untracked_entries) + len(conflict_entries) == 0 and \
-                        len(staged_entries) > 0:
-                    self.git("commit", "--no-edit")
-
-            self.git("rebase", "--continue")
-        finally:
-            util.view.refresh_gitsavvy(self.view)
-
-
-class GsRebaseSkipCommand(TextCommand, GitCommand):
-
-    def run(self, edit):
-        sublime.set_timeout_async(self.run_async, 0)
-
-    def run_async(self):
-        try:
-            self.git("rebase", "--skip")
-        finally:
-            util.view.refresh_gitsavvy(self.view, refresh_sidebar=True)
-
-
 class GsRebaseTogglePreserveModeCommand(TextCommand, GitCommand):
 
     def run(self, edit):

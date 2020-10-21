@@ -443,7 +443,7 @@ def get_selected_files(view, base_path, *sections):
 
     make_abs_path = partial(os.path.join, base_path)
     return [
-        make_abs_path(filename)
+        os.path.normpath(make_abs_path(filename))
         for filename in get_selected_subjects(view, *sections)
     ]
 
@@ -511,24 +511,21 @@ class GsStatusDiffInlineCommand(TextCommand, GitCommand):
     def load_inline_diff_views(self, window, non_cached_files, cached_files):
         # type: (sublime.Window, List[str], List[str]) -> None
         for fpath in non_cached_files:
-            syntax = util.file.get_syntax_for_file(fpath)
-            settings = {
-                "git_savvy.file_path": fpath,
-                "git_savvy.repo_path": self.repo_path,
-                "syntax": syntax
-            }
-            window.run_command("gs_inline_diff", {"settings": settings})
+            syntax = util.file.guess_syntax_for_file(window, fpath)
+            window.run_command("gs_inline_diff_open", {
+                "repo_path": self.repo_path,
+                "file_path": fpath,
+                "syntax": syntax,
+                "cached": False,
+            })
 
         for fpath in cached_files:
-            syntax = util.file.get_syntax_for_file(fpath)
-            settings = {
-                "git_savvy.file_path": fpath,
-                "git_savvy.repo_path": self.repo_path,
-                "syntax": syntax
-            }
-            window.run_command("gs_inline_diff", {
-                "settings": settings,
-                "cached": True
+            syntax = util.file.guess_syntax_for_file(window, fpath)
+            window.run_command("gs_inline_diff_open", {
+                "repo_path": self.repo_path,
+                "file_path": fpath,
+                "syntax": syntax,
+                "cached": True,
             })
 
 
@@ -552,13 +549,20 @@ class GsStatusDiffCommand(TextCommand, GitCommand):
         cached_files = get_selected_files(self.view, repo_path, 'staged')
 
         sublime.set_timeout_async(
-            lambda: self.load_diff_windows(window, non_cached_files, cached_files)
+            lambda: self.load_diff_windows(
+                window,  # type: ignore  # https://github.com/python/mypy/issues/4297
+                non_cached_files,
+                cached_files
+            )
         )
 
     def load_diff_windows(self, window, non_cached_files, cached_files):
         # type: (sublime.Window, List[str], List[str]) -> None
         for fpath in non_cached_files:
-            window.run_command("gs_diff", {"file_path": fpath})
+            window.run_command("gs_diff", {
+                "file_path": fpath,
+                "in_cached_mode": False,
+            })
 
         for fpath in cached_files:
             window.run_command("gs_diff", {

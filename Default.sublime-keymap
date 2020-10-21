@@ -41,8 +41,26 @@
         ]
     },
     {
-        "keys": ["r"],
-        "command": "gs_inline_diff_refresh",
+        "keys": ["c"],
+        "command": "gs_commit",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.inline_diff_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["C"],
+        "command": "gs_commit",
+        "args": {"include_unstaged": true},
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.inline_diff_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["m"],
+        "command": "gs_commit",
+        "args": {"amend": true},
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.inline_diff_view", "operator": "equal", "operand": true }
@@ -94,6 +112,15 @@
             { "key": "setting.git_savvy.inline_diff_view", "operator": "equal", "operand": true }
         ]
     },
+    {
+        "keys": ["tab"],
+        "command": "gs_inline_diff_toggle_cached_mode",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.inline_diff_view", "operator": "equal", "operand": true }
+        ]
+    },
+
     {
         "keys": ["?"],
         "command": "gs_interface_toggle_popup_help",
@@ -237,6 +264,7 @@
     {
         "keys": ["f"],
         "command": "gs_diff",
+        "args": { "in_cached_mode": false },
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.status_view", "operator": "equal", "operand": true }
@@ -389,7 +417,7 @@
     {
         "keys": ["g"],
         "command": "gs_graph",
-        "args": { "all": true, "follow": "HEAD" },
+        "args": { "all": true },
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.status_view", "operator": "equal", "operand": true }
@@ -476,15 +504,15 @@
     // COMMIT VIEW //
     /////////////////
 
-    // Per-platform key-mapping for: gs_commit_view_do_commit
-
     {
         "keys": ["tab"],
         "command": "gs_github_show_issues",
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
-            { "key": "setting.git_savvy.get_long_text_view", "operator": "equal", "operand": true },
-            { "key": "preceding_text", "operator": "regex_match", "operand": ".*[\\n ]#$" }
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true },
+            { "key": "preceding_text", "operator": "regex_match", "operand": "(|.* )#$" },
+            { "key": "selection_empty" },
+            { "key": "num_selections", "operator": "equal", "operand": 1 }
         ]
     },
     {
@@ -493,8 +521,10 @@
         "args": { "default_repo": false },
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
-            { "key": "setting.git_savvy.get_long_text_view", "operator": "equal", "operand": true },
-            { "key": "preceding_text", "operator": "regex_match", "operand": ".*[\\n ][a-zA-Z\\-_0-9\\.]+/[a-zA-Z\\-_0-9\\.]+#$" }
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true },
+            { "key": "preceding_text", "operator": "regex_match", "operand": "(|.* )[a-zA-Z\\-_0-9\\.]+/[a-zA-Z\\-_0-9\\.]+#$" },
+            { "key": "selection_empty" },
+            { "key": "num_selections", "operator": "equal", "operand": 1 }
         ]
     },
     {
@@ -502,10 +532,81 @@
         "command": "gs_github_show_contributors",
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
-            { "key": "setting.git_savvy.get_long_text_view", "operator": "equal", "operand": true },
-            { "key": "preceding_text", "operator": "regex_match", "operand": ".*[\\n ]@$" }
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true },
+            { "key": "preceding_text", "operator": "regex_match", "operand": "(|.* )@$" },
+            { "key": "selection_empty" },
+            { "key": "num_selections", "operator": "equal", "operand": 1 }
         ]
     },
+    {
+        "keys": ["tab"],
+        "command": "gs_commit_log_helper",
+        "args": { "prefix": "", "move_to_eol": false },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true },
+            { "key": "preceding_text", "operator": "regex_match", "operand": "^$" },
+            { "key": "selection_empty" },
+            { "key": "num_selections", "operator": "equal", "operand": 1 },
+            { "key": "selector", "operator": "equal", "operand": "meta.commit.message.subject" }
+        ]
+    },
+    {
+        "keys": ["tab"],
+        "command": "gs_commit_log_helper",
+        "args": { "prefix": "fixup! " },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true },
+            { "key": "preceding_text", "operator": "regex_match", "operand": "fix(|up(! ?)?)$" },
+            { "key": "selection_empty" },
+            { "key": "num_selections", "operator": "equal", "operand": 1 },
+            { "key": "selector", "operator": "equal", "operand": "meta.commit.message.subject" }
+        ]
+    },
+    {
+        "keys": ["tab"],
+        "command": "gs_commit_log_helper",
+        "args": { "prefix": "squash! " },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true },
+            { "key": "preceding_text", "operator": "regex_match", "operand": "sq(|uash(! ?)?)$" },
+            { "key": "selection_empty" },
+            { "key": "num_selections", "operator": "equal", "operand": 1 },
+            { "key": "selector", "operator": "equal", "operand": "meta.commit.message.subject" }
+        ]
+    },
+    {
+        "keys": ["o"],
+        "command": "gs_diff_open_file_at_hunk",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true },
+            { "key": "selector", "operand": "git-savvy.make-commit meta.dropped.git.commit" }
+        ]
+    },
+    {
+        "keys": ["."],
+        "command": "gs_diff_navigate",
+        "args": { "forward": true },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true },
+            { "key": "selector", "operand": "git-savvy.make-commit meta.dropped.git.commit" }
+        ]
+    },
+    {
+        "keys": [","],
+        "command": "gs_diff_navigate",
+        "args": { "forward": false },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.commit_view", "operator": "equal", "operand": true },
+            { "key": "selector", "operand": "git-savvy.make-commit meta.dropped.git.commit" }
+        ]
+    },
+
 
     ///////////////
     // DIFF VIEW //
@@ -549,6 +650,15 @@
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.diff_view", "operator": "equal", "operand": true },
             { "key": "setting.git_savvy.diff_view.disable_stage", "operator": "equal", "operand": false }
+        ]
+    },
+    {
+        "keys": ["m"],
+        "command": "gs_commit",
+        "args": {"amend": true},
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.diff_view", "operator": "equal", "operand": true }
         ]
     },
     {
@@ -606,17 +716,9 @@
         ]
     },
     {
-        "keys": ["s"],
+        "keys": ["w"],
         "command": "gs_diff_toggle_setting",
         "args": { "setting": "ignore_whitespace" },
-        "context": [
-            { "key": "setting.command_mode", "operator": "equal", "operand": false },
-            { "key": "setting.git_savvy.diff_view", "operator": "equal", "operand": true }
-        ]
-    },
-    {
-        "keys": ["w"],
-        "command": "gs_diff_cycle_word_diff",
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.diff_view", "operator": "equal", "operand": true }
@@ -718,18 +820,9 @@
         ]
     },
     {
-        "keys": ["s"],
-        "command": "gs_show_commit_toggle_setting",
-        "args": { "setting": "ignore_whitespace" },
-        "context": [
-            { "key": "setting.command_mode", "operator": "equal", "operand": false },
-            { "key": "setting.git_savvy.show_commit_view", "operator": "equal", "operand": true }
-        ]
-    },
-    {
         "keys": ["w"],
         "command": "gs_show_commit_toggle_setting",
-        "args": { "setting": "show_word_diff" },
+        "args": { "setting": "ignore_whitespace" },
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.show_commit_view", "operator": "equal", "operand": true }
@@ -750,6 +843,22 @@
     ////////////////
 
     {
+        "keys": ["."],
+        "command": "gs_next_hunk",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.show_file_at_commit_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": [","],
+        "command": "gs_prev_hunk",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.show_file_at_commit_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
         "keys": ["o"],
         "command": "gs_show_file_at_commit_open_commit",
         "context": [
@@ -768,6 +877,22 @@
     {
         "keys": ["g"],
         "command": "gs_show_file_at_commit_open_graph_context",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.show_file_at_commit_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["p"],
+        "command": "gs_show_file_at_commit_open_previous_commit",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.show_file_at_commit_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["n"],
+        "command": "gs_show_file_at_commit_open_next_commit",
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.show_file_at_commit_view", "operator": "equal", "operand": true }
@@ -1377,6 +1502,30 @@
         ]
     },
     {
+        "keys": ["up"],
+        "command": "gs_input_handler_go_history",
+        "args": { "forward": false },
+        "context": [
+            { "key": "setting.input_panel_with_history" }
+        ]
+    },
+    {
+        "keys": ["down"],
+        "command": "gs_input_handler_go_history",
+        "args": { "forward": true },
+        "context": [
+            { "key": "setting.input_panel_with_history" }
+        ]
+    },
+    {
+        "keys": ["l"],
+        "command": "gs_log_graph_edit_files",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.log_graph_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
         "keys": ["h"],
         "command": "gs_log_graph_navigate_to_head",
         "context": [
@@ -1392,6 +1541,31 @@
             { "key": "setting.git_savvy.log_graph_view", "operator": "equal", "operand": true }
         ]
     },
+    {
+        "keys": ["r"],
+        "command": "gs_rebase_action",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.log_graph_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["W"],
+        "command": "gs_rebase_reword_commit",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.log_graph_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["E"],
+        "command": "gs_rebase_edit_commit",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.log_graph_view", "operator": "equal", "operand": true }
+        ]
+    },
+
     {
         "keys": ["?"],
         "command": "gs_interface_toggle_popup_help",
@@ -1422,20 +1596,36 @@
     {
         "keys": ["down"],
         "command": "gs_log_graph_navigate",
-        "args": { "forward": true },
+        "args": { "forward": true, "natural_movement": true },
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
-            { "key": "setting.git_savvy.arrow_keys_navigation", "operator": "equal", "operand": true },
-            { "key": "setting.git_savvy.log_graph_view", "operator": "equal", "operand": true }
+            { "key": "selector", "operand": "git-savvy.graph meta.content.git_savvy.graph" }
         ]
     },
     {
         "keys": ["up"],
         "command": "gs_log_graph_navigate",
+        "args": { "forward": false, "natural_movement": true },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "selector", "operand": "git-savvy.graph meta.content.git_savvy.graph" }
+        ]
+    },
+    {
+        "keys": ["alt+down"],
+        "command": "gs_log_graph_navigate_wide",
+        "args": { "forward": true },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.log_graph_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["alt+up"],
+        "command": "gs_log_graph_navigate_wide",
         "args": { "forward": false },
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
-            { "key": "setting.git_savvy.arrow_keys_navigation", "operator": "equal", "operand": true },
             { "key": "setting.git_savvy.log_graph_view", "operator": "equal", "operand": true }
         ]
     },
@@ -1475,6 +1665,82 @@
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.log_graph_view", "operator": "equal", "operand": true }
+        ]
+    },
+
+    //////////////////
+    // LINE HISTORY //
+    //////////////////
+
+    {
+        "keys": ["o"],
+        "command": "gs_line_history_open_commit",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.line_history_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["O"],
+        "command": "gs_diff_open_file_at_hunk",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.line_history_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["g"],
+        "command": "gs_line_history_open_graph_context",
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.line_history_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["."],
+        "command": "gs_diff_navigate",
+        "args": { "forward": true },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.line_history_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": [","],
+        "command": "gs_diff_navigate",
+        "args": { "forward": false },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.line_history_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["j"],
+        "command": "gs_diff_navigate",
+        "args": { "forward": true },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.vintageous_friendly", "operator": "equal", "operand": true },
+            { "key": "setting.git_savvy.line_history_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["k"],
+        "command": "gs_diff_navigate",
+        "args": { "forward": false },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.vintageous_friendly", "operator": "equal", "operand": true },
+            { "key": "setting.git_savvy.line_history_view", "operator": "equal", "operand": true }
+        ]
+    },
+    {
+        "keys": ["?"],
+        "command": "gs_interface_toggle_popup_help",
+        "args": { "view_name": "line_history" },
+        "context": [
+            { "key": "setting.command_mode", "operator": "equal", "operand": false },
+            { "key": "setting.git_savvy.line_history_view", "operator": "equal", "operand": true }
         ]
     },
 
@@ -1685,7 +1951,6 @@
         "context": [
             { "key": "setting.command_mode", "operator": "equal", "operand": false },
             { "key": "setting.git_savvy.vintageous_friendly", "operator": "equal", "operand": false },
-
             { "key": "setting.git_savvy.rebase_view", "operator": "equal", "operand": true }
         ]
     },

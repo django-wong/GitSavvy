@@ -136,22 +136,6 @@ def handle_closed_view(view):
 # IN-VIEW HELPER FUNCTIONS #
 ############################
 
-def move_cursor(view, line_no, char_no):
-    # type: (sublime.View, int, int) -> None
-    # Line numbers are one-based, rows are zero-based.
-    line_no -= 1
-
-    # Negative line index counts backwards from the last line.
-    if line_no < 0:
-        last_line, _ = view.rowcol(view.size())
-        line_no = last_line + line_no + 1
-
-    pt = view.text_point(line_no, char_no)
-    view.sel().clear()
-    view.sel().add(sublime.Region(pt))
-    view.show(pt)
-
-
 def _region_within_regions(all_outer, inner):
     for outer in all_outer:
         if outer.begin() <= inner.begin() and outer.end() >= inner.end():
@@ -193,11 +177,3 @@ def disable_other_plugins(view):
     # https://github.com/guillermooo/Vintageous/wiki/Disabling
     if GitSavvySettings().get("vintageous_friendly", False) is False:
         view.settings().set("__vi_external_disable", False)
-
-
-def flash(view, message):
-    # type: (sublime.View, str) -> None
-    """ Flash status message on view's window. """
-    window = view.window()
-    if window:
-        window.status_message(message)

@@ -10,6 +10,7 @@ from .fns import accumulate, pairwise
 MYPY = False
 if MYPY:
     from typing import Final, Iterator, List, NamedTuple, Optional, Tuple, Type
+    from .types import LineNo
 
 
 if MYPY:
@@ -77,7 +78,6 @@ class SplittedDiff(SplittedDiffBase):
 
 
 HEADER_TO_FILE_RE = re.compile(r'\+\+\+ b/(.+)$')
-HUNKS_LINES_RE = re.compile(r'@@*.+\+(\d+)(?:,\d+)? ')
 
 
 class TextRange:
@@ -95,7 +95,7 @@ class TextRange:
 
     def __hash__(self):
         # type: () -> int
-        return hash(self._as_tuple)
+        return hash(self._as_tuple())
 
     def __eq__(self, other):
         # type: (object) -> bool
@@ -157,18 +157,34 @@ class Hunk(TextRange):
         )
 
 
+EXTRACT_B_START = re.compile(r'@@*.+\+(\d+)(?:,\d+)? ')
+PARSE_HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+class UnsupportedCombinedDiff(RuntimeError):
+    pass
+
+
 class HunkHeader(TextRange):
-    def from_line_start(self):
-        # type: () -> Optional[int]
+    def to_line_start(self):
+        # type: () -> Optional[LineNo]
         """Extract the starting line at "b" encoded in the hunk header
 
         T.i. for "@@ -685,8 +686,14 @@ ..." extract the "686".
         """
-        match = HUNKS_LINES_RE.search(self.text)
+        match = EXTRACT_B_START.search(self.text)
         if not match:
             return None
 
         return int(match.group(1))
+
+    def parse(self):
+        # type: () -> Tuple[LineNo, int, LineNo, int]
+        match = PARSE_HUNK_HEADER.match(self.text)
+        if match is None:
+            raise UnsupportedCombinedDiff(self.text)
+        a_start, a_length, b_start, b_length = match.groups()
+        return int(a_start), int(a_length or "1"), int(b_start), int(b_length or "1")
 
 
 class HunkLine(TextRange):

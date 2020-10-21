@@ -1,6 +1,13 @@
 import re
 import string
 
+from .. import store
+
+
+MYPY = False
+if MYPY:
+    from typing import Optional
+
 
 class ActiveBranchMixin():
 
@@ -147,6 +154,13 @@ class ActiveBranchMixin():
             "--abbrev-commit",
             throw_on_stderr=False
         ).strip()
+        if stdout:
+            try:
+                short_hash = stdout.split(maxsplit=1)[0]
+            except IndexError:
+                pass
+            else:
+                store.update_state(self.repo_path, {"short_hash_length": len(short_hash)})
 
         return stdout or "No commits yet."
 
@@ -156,6 +170,15 @@ class ActiveBranchMixin():
         """
         return self.git("rev-parse", "--abbrev-ref", "--symbolic-full-name",
                         "@{u}", throw_on_stderr=False).strip()
+
+    def get_remote_for_branch(self, branch_name):
+        # type: (str) -> Optional[str]
+        return self.git(
+            "config",
+            "--get",
+            "branch.{}.remote".format(branch_name),
+            throw_on_stderr=False
+        ).strip() or None
 
     def get_active_remote_branch(self):
         """

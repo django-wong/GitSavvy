@@ -12,6 +12,7 @@ MYPY = False
 if MYPY:
     from typing import Any, Callable, Dict, Iterator, Literal, Optional, Tuple, TypeVar
     T = TypeVar('T')
+    F = TypeVar('F', bound=Callable[..., Any])
     Callback = Tuple[Callable, Tuple[Any, ...], Dict[str, Any]]
     ReturnValue = Any
 
@@ -48,6 +49,13 @@ def enqueue_on_savvy(fn, *args, **kwargs):
 def run_on_new_thread(fn, *args, **kwargs):
     # type: (Callable, Any, Any) -> None
     threading.Thread(target=fn, args=args, kwargs=kwargs).start()
+
+
+def on_new_thread(fn):
+    @wraps(fn)
+    def wrapped(*a, **kw):
+        run_on_new_thread(fn, *a, **kw)
+    return wrapped
 
 
 def run_or_timeout(fn, timeout):
@@ -97,12 +105,12 @@ def run_as_text_command(fn, view, *args, **kwargs):
 
 
 def text_command(fn):
-    # type: (Callable[..., T]) -> Callable[..., T]
+    # type: (F) -> F
     @wraps(fn)
     def decorated(view, *args, **kwargs):
         # type: (sublime.View, Any, Any) -> Optional[T]
         return run_as_text_command(fn, view, *args, **kwargs)
-    return decorated
+    return decorated  # type: ignore[return-value]
 
 
 @lru_cache()

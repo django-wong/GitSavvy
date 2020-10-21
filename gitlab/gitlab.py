@@ -72,10 +72,7 @@ def parse_remote(remote):
         return None
 
     fqdn, owner, repo = match.groups()
-
-    api_tokens = GitSavvySettings().get("api_tokens")
-    token = api_tokens and api_tokens.get(fqdn, None) or None
-
+    token = GitSavvySettings().get("api_tokens", {}).get(fqdn)
     return GitLabRepo(url, fqdn, owner, repo, token)
 
 
@@ -209,12 +206,12 @@ def iteratively_query_gitlab(api_url_template, gitlab_repo, **url_params):
     while True:
         if response is not None:
             # it means this is not the first iter
-            if "Link" not in response.headers:
+            if "link" not in response.headers:
                 break
 
             # following next link
             # https://docs.gitlab.com/ee/api/README.html#pagination
-            match = re.match(r'<([^>]+)>; rel="next"', response.headers["Link"])
+            match = re.match(r'<([^>]+)>; rel="next"', response.headers["link"])
             if not match:
                 break
 

@@ -70,10 +70,7 @@ def parse_remote(remote):
         return None
 
     fqdn, owner, repo = match.groups()
-
-    api_tokens = GitSavvySettings().get("api_tokens")
-    token = api_tokens and api_tokens.get(fqdn, None) or None
-
+    token = GitSavvySettings().get("api_tokens", {}).get(fqdn)
     return GitHubRepo(url, fqdn, owner, repo, token)
 
 
@@ -191,12 +188,12 @@ def iteratively_query_github(api_url_template, github_repo):
     while True:
         if response is not None:
             # it means this is not the first iter
-            if "Link" not in response.headers:
+            if "link" not in response.headers:
                 break
 
             # following next link
             # https://developer.github.com/v3/#pagination
-            match = re.match(r'.*<([^>]+)>; rel="next"', response.headers["Link"])
+            match = re.match(r'.*<([^>]+)>; rel="next"', response.headers["link"])
             if not match:
                 break
 

@@ -6,8 +6,9 @@ import sublime
 from sublime_plugin import TextCommand
 
 from . import util
+from ..core.runtime import enqueue_on_worker
 from ..core.settings import GitSavvySettings
-
+from ..core.utils import focus_view
 
 MYPY = False
 if MYPY:
@@ -19,16 +20,6 @@ edit_views = {}
 subclasses = []
 
 EDIT_DEFAULT_HELP_TEXT = "## To finalize your edit, press {super_key}+Enter.  To cancel, close the view.\n"
-
-
-def focus_view(view):
-    window = view.window()
-    if not window:
-        return
-
-    group, _ = window.get_view_index(view)
-    window.focus_group(group)
-    window.focus_view(view)
 
 
 class Interface():
@@ -82,7 +73,6 @@ class Interface():
 
         if view:
             self.view = view
-            self.render(nuke_cursors=False)
         else:
             self.create_view(repo_path)
             sublime.set_timeout_async(self.on_new_dashboard, 0)
@@ -313,19 +303,19 @@ class GsInterfaceRefreshCommand(TextCommand):
     """
 
     def run(self, edit, nuke_cursors=False):
-        sublime.set_timeout_async(self.run_async, 0)
-        self.nuke_cursors = nuke_cursors
+        enqueue_on_worker(self.run_async, nuke_cursors)
 
-    def run_async(self):
+    def run_async(self, nuke_cursors):
+        # type: (bool) -> None
         interface_type = self.view.settings().get("git_savvy.interface")
-        for InterfaceSubclass in subclasses:
-            if InterfaceSubclass.interface_type == interface_type:
-                existing_interface = interfaces.get(self.view.id(), None)
-                if existing_interface:
-                    existing_interface.render(nuke_cursors=self.nuke_cursors)
-                else:
-                    interface = InterfaceSubclass(view=self.view)
-                    interfaces[interface.view.id()] = interface
+        for cls in subclasses:
+            if cls.interface_type == interface_type:
+                vid = self.view.id()
+                interface = interfaces.get(vid, None)
+                if not interface:
+                    interface = interfaces[vid] = cls(view=self.view)
+                interface.render(nuke_cursors=nuke_cursors)  # type: ignore[union-attr]
+                break
 
 
 class GsInterfaceToggleHelpCommand(TextCommand):
@@ -349,11 +339,14 @@ class GsInterfaceTogglePopupHelpCommand(TextCommand):
     Toggle GitSavvy popup help.
     """
 
-    def run(self, edit, view_name, popup_max_width=800, popup_max_height=600):
+    def run(self, edit, view_name, popup_max_width=800, popup_max_height=900):
         css = sublime.load_resource("Packages/GitSavvy/popups/style.css")
-        html = sublime.load_resource("Packages/GitSavvy/popups/" + view_name + ".html")\
+        html = (
+            sublime.load_resource("Packages/GitSavvy/popups/" + view_name + ".html")
             .format(css=css, super_key=util.super_key)
-        self.view.show_popup(html, 0, -1, popup_max_width, popup_max_height)
+        )
+        visible_region = self.view.visible_region()
+        self.view.show_popup(html, 0, visible_region.begin(), popup_max_width, popup_max_height)
 
 
 class EditView():
@@ -410,9 +403,7 @@ class GsEditViewCompleteCommand(TextCommand):
         content_after = self.view.substr(sublime.Region(help_region.end(), self.view.size() - 1))
         content = (content_before + content_after).strip()
 
-        self.view.window().focus_view(self.view)
-        self.view.window().run_command("close_file")
-
+        self.view.close()
         edit_view.on_done(content)
 
 
